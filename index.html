@@ -554,14 +554,15 @@ const ITEMCFG={
 };
 const items={};
 function buildItems(){
-  for(const k in ITEMS){const it=ITEMS[k],I=ISL3D[it.isl];const g=new THREE.Group();const model=mkItem(k);g.add(model);scene.add(g);
+  for(const k in ITEMS){const it=ITEMS[k],I=ISL3D[it.isl];const g=new THREE.Group();const model=mkItem(k);g.add(model);scene.add(g);const glowM=[];
+    model.traverse(o=>{if(o.isMesh){o.material=o.material.clone();if(o!==model.userData.door&&o!==model.userData.glass){o.material.userData.e0=o.material.emissive.clone();o.material.userData.i0=o.material.emissiveIntensity;glowM.push(o.material);}}});
     const d=new THREE.Vector2(DOCK.x-I.x,DOCK.z-I.z).normalize();
     const same=Object.keys(ITEMS).filter(j=>ITEMS[j].isl===it.isl);const idx=same.indexOf(k),n=same.length;
     const side=n===1?0:(idx===0?-.95:.95);const x=I.x+d.x*I.r*.38-d.y*side,z=I.z+d.y*I.r*.38+d.x*side;
-    items[k]={k,g,model,home:new V3(x,Y(x,z),z),homeRot:Math.atan2(d.x,d.y)+(k==='palatka'?.5:k==='lopata'?.6:0)};}
+    items[k]={k,g,model,home:new V3(x,Y(x,z),z),homeRot:Math.atan2(d.x,d.y)+(k==='palatka'?.5:k==='lopata'?.6:0),glowM};}
 }
 function resetItems(){for(const k in items){const it=items[k];scene.attach(it.g);it.g.position.copy(it.home);it.g.rotation.set(0,it.homeRot,0);it.g.scale.setScalar(ITEMCFG[k].isl);it.g.visible=true;
-  const lm=it.model.userData;if(lm.door)lm.door.material=mat('#8a4f22',{side:THREE.DoubleSide,emissive:'#ffb347',emissiveIntensity:0});if(lm.glass)lm.glass.material.emissiveIntensity=.25;}}
+  const lm=it.model.userData;if(lm.door)lm.door.material.emissiveIntensity=0;if(lm.glass)lm.glass.material.emissiveIntensity=.25;}}
 
 /* ---------- animals ---------- */
 function newA(id){const g=new THREE.Group(),body=new THREE.Group();g.add(body);scene.add(g);return {id,g,body,legs:[],head:null,phase:0,walking:false,state:'',hopY:0,sit:0,sitT:0,top:2,boatScale:.55};}
@@ -758,20 +759,16 @@ let sayRes=null,islRes=null,islWant=null,islT0=0;
 function speak(txt,lbl){return new Promise(res=>{sayRes=res;$('sayTxt').textContent=txt;$('sayLbl').textContent=lbl||'Пример фразы';
   $('sayHint').hidden=!showHint;$('say').hidden=false;duck(.1);});}
 function said(){if(!sayRes)return;const r=sayRes;sayRes=null;$('say').hidden=true;sfx.ok();duck(.38);r();}
-const IB=[];let IBT=null;
-function ibTex(){if(IBT)return IBT;const c=document.createElement('canvas');c.width=c.height=256;const x=c.getContext('2d');x.shadowColor='rgba(80,60,30,.28)';x.shadowBlur=16;x.shadowOffsetY=6;
-  x.fillStyle='#fffdf6';x.beginPath();x.arc(128,120,104,0,TAU);x.fill();x.shadowColor='transparent';x.strokeStyle='#f39a3d';x.lineWidth=6;x.beginPath();x.arc(128,120,100,0,TAU);x.stroke();return IBT=new THREE.CanvasTexture(c);}
-function showIslandBubbles(){hideIslandBubbles();for(const k in ISL3D){const I=ISL3D[k];
-  const ks=Object.keys(ITEMS).filter(j=>ITEMS[j].isl===k&&items[j].g.parent===scene&&items[j].g.visible&&items[j].g.position.distanceTo(items[j].home)<.5);
-  ks.forEach((kind,idx)=>{const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:ibTex(),depthWrite:false,depthTest:false,fog:false}));sp.renderOrder=7;scene.add(sp);
-    const mini=mkItem(kind);mini.traverse(o=>{if(o.isMesh){o.castShadow=false;o.renderOrder=8;o.material=o.material.clone();o.material.depthTest=false;o.material.depthWrite=false;o.material.transparent=true;o.material.fog=false;}});scene.add(mini);
-    IB.push({sp,mini,kind,idx,n:ks.length,base:new V3(I.x,I.h+(k==='holm'?2.4:2.2),I.z),k:0});});}}
-function hideIslandBubbles(){IB.forEach(b=>{scene.remove(b.sp);scene.remove(b.mini);b.sp.material.dispose();});IB.length=0;}
-const _right=new V3(),_toc=new V3();
-function animIslandBubbles(t,rdt){if(!IB.length)return;_right.setFromMatrixColumn(camera.matrixWorld,0);
-  for(const b of IB){b.k=Math.min(1,b.k+rdt*2.5);const s=(.7+camCur.d*.045)*ease(b.k);const p=b.base.clone().addScaledVector(_right,(b.idx-(b.n-1)/2)*s*1.15);p.y+=Math.sin(t*2+b.idx)*.1+s*.3;
-    b.sp.position.copy(p);b.sp.scale.set(s,s,1);_toc.copy(camera.position).sub(p).normalize();b.mini.position.copy(p).addScaledVector(_toc,.3*s);b.mini.position.y-=s*.2;
-    b.mini.scale.setScalar(ITEMCFG[b.kind].bub*s*.78);b.mini.rotation.y=t*.7;}}
+let glowOn=false,GLT=null;
+function glowTex(){if(GLT)return GLT;const c=document.createElement('canvas');c.width=c.height=128;const x=c.getContext('2d');const gr=x.createRadialGradient(64,64,0,64,64,64);
+  gr.addColorStop(0,'rgba(255,236,150,.9)');gr.addColorStop(.35,'rgba(255,214,110,.45)');gr.addColorStop(1,'rgba(255,200,90,0)');x.fillStyle=gr;x.fillRect(0,0,128,128);return GLT=new THREE.CanvasTexture(c);}
+function atHome(it){return it.g.parent===scene&&it.g.visible&&it.g.position.distanceTo(it.home)<.5;}
+function showIslandBubbles(){glowOn=true;for(const k in items){const it=items[k];if(!it.halo){it.halo=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex(),transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,fog:false}));scene.add(it.halo);}
+  it.halo.position.copy(it.home);it.halo.position.y+=.45;it.halo.visible=atHome(it);}}
+function hideIslandBubbles(){glowOn=false;for(const k in items){const it=items[k];if(it.halo)it.halo.visible=false;it.glowM.forEach(m=>{m.emissive.copy(m.userData.e0);m.emissiveIntensity=m.userData.i0;});}}
+function animIslandBubbles(t){if(!glowOn)return;const k=.5+.5*Math.sin(t*4);
+  for(const kk in items){const it=items[kk];const on=atHome(it);if(it.halo){it.halo.visible=on;const s=(kk==='palatka'?3.6:3.0)*(.88+.2*k);it.halo.scale.set(s,s,1);it.halo.material.opacity=.7+.3*k;}
+    it.glowM.forEach(m=>{if(on){m.emissive.set('#ffcf6a');m.emissiveIntensity=.35+.45*k;}else{m.emissive.copy(m.userData.e0);m.emissiveIntensity=m.userData.i0;}});}}
 let peekTok=0;
 async function peekIsland(k){const I=ISL3D[k],my=++peekTok;shot(I.x,I.h*.6,I.z,3.6,null,1,.55);await sleep(1700);if(my===peekTok&&islRes)shot(LAKE.x,0,LAKE.z+1,isPortrait()?10:11.5,null,1,.78);}
 function chooseIsland(k,nom){showIslandBubbles();return new Promise(res=>{islRes=res;islWant=k;islT0=performance.now();$('tapTxt').textContent='Где '+(nom==='палки'?'лежат ':'лежит ')+nom+'? Нажми на этот остров';$('tap').hidden=false;canvas.classList.add('pick');});}
@@ -1070,7 +1067,7 @@ function loop(now){requestAnimationFrame(loop);const rdt=Math.min(.05,(now-last)
   const ro=boat.moving?Math.sin(t*6):0;boat.oars.forEach((o,i)=>{o.rotation.y=(i?-1:1)*ro*.5;o.rotation.z=(boat.moving?Math.cos(t*6)*.2:0)*(i?-1:1);});
   if(boat.moving){rowT+=rdt;if(rowT>.35){rowT=0;wake();if(Math.random()<.5)sfx.row();}}
   for(let i=0;i<wakes.length;i++){const w=wakes[i];w.l-=rdt*.6;w.m.scale.set(.3+(1-w.l)*1.4,.3+(1-w.l)*1.4,.15);w.m.material.opacity=w.l*.45;if(w.l<=0){scene.remove(w.m);w.m.material.dispose();wakes.splice(i,1);i--;}}
-  animIslandBubbles(t,rdt);
+  animIslandBubbles(t);
   if(lamaInTent){zT+=rdt;if(zT>1.1){zT=0;zzz();}}
   for(let i=0;i<zs.length;i++){const z=zs[i];z.l-=rdt*.4;z.s.position.y+=rdt*.45;z.s.position.x+=Math.sin(t*2+z.ph)*rdt*.25;z.s.scale.setScalar(.3+(1-z.l)*.35);z.s.material.opacity=Math.min(1,z.l*2);if(z.l<=0){scene.remove(z.s);z.s.material.dispose();zs.splice(i,1);i--;}}
   for(let i=0;i<parts.length;i++){const p=parts[i];p.vy-=p.g*rdt;p.m.position.x+=p.vx*rdt;p.m.position.y+=p.vy*rdt;p.m.position.z+=p.vz*rdt;p.l-=rdt*1.2;p.m.scale.setScalar(Math.max(.001,p.s*p.l));p.m.rotation.y+=rdt*5;
