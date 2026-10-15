@@ -190,6 +190,25 @@ body.playing .fsb{right:calc(68px + env(safe-area-inset-right,0px))}
 }
 @media (max-height:360px){.lead{display:none}.panel h1{font-size:22px;margin-bottom:8px}}
 @media (prefers-reduced-motion:reduce){.say-btn::before,.say-btn::after,.say-btn .d{animation:none}}
+
+.daybar{pointer-events:auto;touch-action:none;cursor:pointer;padding:12px 4px;margin-top:2px;outline:none;-webkit-user-select:none;user-select:none}
+.daybar:focus-visible .dtrack{box-shadow:0 0 0 3px var(--acc),0 2px 0 var(--shade)}
+.dtick{position:absolute;top:50%;width:7px;height:7px;margin:-3.5px 0 0 -3.5px;border-radius:50%;background:rgba(255,255,255,.9);box-shadow:0 0 0 1.5px rgba(60,40,20,.25);pointer-events:none}
+.dknob{cursor:grab;touch-action:none}
+.scrubbing .hud{z-index:9}.scrubbing .capq,.scrubbing .tap,.scrubbing .say{opacity:0}
+.dknob.drag{transition:none;cursor:grabbing;transform:scale(1.15)}
+.dlabel{position:absolute;top:26px;transform:translateX(-50%);background:var(--paper);color:var(--ink);font-size:12.5px;font-weight:800;white-space:nowrap;
+  padding:5px 12px;border-radius:999px;box-shadow:0 3px 0 var(--shade),0 6px 18px rgba(0,0,0,.12);pointer-events:none;z-index:2}
+.dlabel small{display:block;font-size:10px;font-weight:700;color:var(--ink2);text-transform:uppercase;letter-spacing:.06em}
+.daybar{flex:1;max-width:300px}
+.tg{margin:12px 0 0;font-size:11.5px;color:var(--ink2);opacity:.9}
+.tg a,.more a{color:var(--leaf-d);font-weight:700;text-decoration:underline;text-underline-offset:3px}
+.more{margin:22px -22px -22px;padding:16px 22px 18px;border-top:1px dashed var(--line);border-radius:0 0 28px 28px;background:var(--leaf-soft)}
+.msg .more p{margin:0;font-size:14px;line-height:1.45;color:var(--ink);font-weight:600}
+.msg .more p.tg2{margin:8px 0 0;font-size:12.5px;color:var(--ink2)}.tg2 b{color:var(--leaf-d)}
+@media (max-height:420px){.sign .tg{display:none}}
+@media (max-height:760px){.sign .note{display:none}.sign .lead{margin:6px auto 10px}.sign .menu{margin-bottom:8px}}
+@media (max-height:700px){.sign .lead{display:none}}
 </style>
 <canvas id="c"></canvas>
 <div class="glow" id="glow"></div>
@@ -199,7 +218,7 @@ body.playing .fsb{right:calc(68px + env(safe-area-inset-right,0px))}
     <button id="bExit" class="ib" aria-label="В меню" title="В меню">🏠</button>
     <div class="sndwrap"><button id="bSnd" class="ib" aria-label="Звук и музыка" title="Звук">🔊</button><div id="sndPop" class="sndpop" hidden><button class="vb" data-snd aria-label="Звук" title="Звук">🔊</button><input class="vr" data-vol type="range" min="0" max="100" value="80" aria-label="Громкость"></div></div>
   </div>
-  <div class="daybar" aria-hidden="true"><div class="dtrack"><div id="dKnob" class="dknob">☀️</div></div></div>
+  <div class="daybar" id="dayBar" tabindex="0" role="slider" aria-label="Перейти к другой части дня"><div class="dtrack"><div id="dKnob" class="dknob">☀️</div></div></div>
   <div class="hud-right"><span class="fs-slot" aria-hidden="true"></span><button id="bHint" class="ib" aria-pressed="true" aria-label="Пример фразы для взрослого" title="Пример фразы для взрослого">💬</button></div>
 </div>
 
@@ -229,6 +248,7 @@ body.playing .fsb{right:calc(68px + env(safe-area-inset-right,0px))}
     <div class="vol-row"><span>Звук</span><button class="vb" data-snd aria-label="Звук" title="Звук">🔊</button><input class="vr" data-vol type="range" min="0" max="100" value="80" aria-label="Громкость"></div></div>
     <button class="btn" id="bStart">Начать день</button>
     <p class="note">Взрослый нажимает оранжевую кнопку, когда ребёнок сказал фразу. Можно нажать пробел.</p>
+    <p class="tg">Автор игры — тгк <b>@polliafania</b> · <a href="https://polliafan-prog.github.io/games/" target="_blank" rel="noopener">все игры</a></p>
   </div>
 </div>
 
@@ -238,6 +258,7 @@ body.playing .fsb{right:calc(68px + env(safe-area-inset-right,0px))}
     <h2>Вот и вечер!</h2>
     <p>Все звери сидят у огня. Лагерь построен, и день был отличный.</p>
     <div class="row"><button class="btn" id="bAgain">Ещё раз</button><button class="btn soft" id="bMenu">Сменить уровень</button></div>
+    <div class="more"><p>Понравилась игра? Другие игры для логопедических занятий — <a href="https://polliafan-prog.github.io/games/" target="_blank" rel="noopener">здесь</a></p><p class="tg2">Телеграм-канал автора: <b>@polliafania</b></p></div>
   </div>
 </div>
 
@@ -744,7 +765,7 @@ function applyDay(t){dayT=t;let i=0;while(i<KF.length-2&&t>KF[i+1].t)i++;const A
   fill.intensity=.15*(1-night);clouds.material.opacity=.95-night*.55;clouds.material.emissive.copy(cl('#fff6e8','#8a7aa8',night));
   shafts.forEach(s=>s.material.opacity=.32*(1-smooth(.75,.88,t))*(.6+.4*Math.abs(Math.sin(t*6))));
   $('glow').style.opacity=.75-night*.3;
-  const dk=$('dKnob');dk.style.left=(t*100)+'%';dk.textContent=t>.86?'🌙':'☀️';
+  const dk=$('dKnob');if(!scrub)dk.style.left=(t*100)+'%';dk.textContent=t>.86?'🌙':'☀️';
   if(items.palatka){const d=items.palatka.model.userData.door;if(d)d.material.emissiveIntensity=night*.9*(placed.palatka?1:0);}
 }
 const placed={};
@@ -987,7 +1008,24 @@ async function finale(tok){
   sfx.win();for(const id in animals)hop(animals[id],3);await sleep(1600);chk(tok);
   mode='win';$('win').hidden=false;}
 async function intro(tok){shot(0,0,0,isPortrait()?2.6:3.2,boat.kid,.6,.35);$('cap').hidden=false;boat.wave=true;await sleep(3200);chk(tok);$('cap').hidden=true;boat.wave=false;}
-async function runGame(){const tok=++runTok;try{await intro(tok);for(let i=0;i<EPS.length;i++){await episode(i,tok);}await finale(tok);}catch(e){if(!(e instanceof Abort))console.error(e);}}
+function applyDone(ep){const A=animals[ep.id],it=items[ep.item],k=ep.item;A.g.visible=true;scene.attach(A.g);A.g.scale.setScalar(A.base);A.state='';A.walking=false;
+  const at=(x,z,y)=>{A.g.position.set(x,y==null?Y(x,z):y,z);};const face=(x,z)=>{A.g.rotation.set(0,Math.atan2(x-A.g.position.x,z-A.g.position.z),0);};
+  const put=(x,y,z,ry,sc)=>{scene.attach(it.g);it.g.visible=true;it.g.position.set(x,y,z);it.g.rotation.set(0,ry,0);it.g.scale.setScalar(sc);};
+  if(ep.id==='lama'){const T=SPOT.tent;put(T.x,Y(T.x,T.z),T.z,TENT_RY,1);tentMode(it,true);it.model.scale.setScalar(1.6);DYN.tent={x:T.x,z:T.z,r:1.3};A.g.visible=false;lamaInTent=true;}
+  else if(ep.id==='slon'){const B=SPOT.bench;at(B.x,B.z-.15);A.g.rotation.set(0,0,0);A.sitT=A.sit=1;it.g.visible=false;A.drape.visible=true;A.drape.scale.set(.85,1.3,.77);A.state='rest';}
+  else if(ep.id==='belka'){const T=SPOT.table,ty=Y(T.x,T.z)+.83;at(T.x-.62,T.z+.05,ty);A.g.rotation.set(0,.9,0);put(T.x-.15,ty,T.z+.1,0,ITEMCFG.yabloko.camp);A.state='eat';}
+  else if(ep.id==='volk'){at(FIRE.x+1.25,FIRE.z+1.25);face(FIRE.x,FIRE.z);pit.visible=true;pit.scale.setScalar(1);put(FIRE.x+1.8,Y(FIRE.x+1.8,FIRE.z-.5)+.02,FIRE.z-.5,.9,ITEMCFG.lopata.camp);
+    DYN.pit={x:FIRE.x,z:FIRE.z,r:1.0};DYN.shovel={x:FIRE.x+1.8,z:FIRE.z-.5,r:.4};}
+  else if(ep.id==='los'){at(FIRE.x-1.5,FIRE.z-1.3);face(FIRE.x,FIRE.z);it.g.visible=false;logs.visible=true;logs.scale.setScalar(1);}
+  else if(ep.id==='loshadka'){const K=SPOT.hook;at(K.x-.9,K.z+1.0);face(K.x,K.z);put(K.x,K.y-.82,K.z,0,ITEMCFG.lampa.camp);it.model.userData.glass.material.emissiveIntensity=1.4;
+    lampLight.position.set(K.x,K.y-.5,K.z+.2);lampLight.intensity=1.6;}
+  placed[k]=true;if(A.g.visible)settle(A);GR.dirty=true;}
+async function runFrom(c){const tok=++runTok;curCh=c;try{if(c===0)await intro(tok);
+    for(let i=Math.min(c,EPS.length);i<EPS.length;i++){curCh=i;await episode(i,tok);}curCh=EPS.length;await finale(tok);}catch(e){if(!(e instanceof Abort))console.error(e);}}
+function jumpTo(c){if(mode!=='play')return;$('win').hidden=true;$('confirm').hidden=true;resetWorld();for(let j=0;j<Math.min(c,EPS.length);j++)applyDone(EPS[j]);
+  applyDay(CHAPTERS[c].t);shot(WAITP.x+1,1,WAITP.z+1.5,closeR(5.2),null,1,.42);camCur.t.copy(cam.goal);camCur.d=distFor(cam.R);cam.pitch=cam.pitchGoal;cam.yawU=cam.pitchU=0;
+  sfx.ok();runFrom(c);}
+async function runGame(){return runFrom(0);}
 
 /* ---------- reset / start ---------- */
 function resetWorld(){runTok++;TW.length=0;sayRes=null;islRes=null;$('say').hidden=true;$('tap').hidden=true;$('cap').hidden=true;boat.wave=false;ring.visible=false;canvas.classList.remove('pick');
@@ -1007,6 +1045,26 @@ function showcase(){resetWorld();applyDay(.66);const T=SPOT.tent,K=SPOT.hook,Tb=
   if(isPortrait())shot(FIRE.x-.2,.6,FIRE.z+3.1,4.4,null,1,.42);else shot(FIRE.x+1.2,1.0,FIRE.z-1.2,5.2,null,1,.3);}
 function startGame(){resetWorld();mode='play';document.body.classList.add('playing');$('intro').hidden=true;$('win').hidden=true;$('hud').hidden=false;cam.baseYaw=0;startMusic();runGame();}
 function toMenu(){mode='intro';document.body.classList.remove('playing');$('hud').hidden=true;$('win').hidden=true;$('intro').hidden=false;showcase();}
+
+
+/* ---------- day bar: drag the sun to jump to any part of the day ---------- */
+const CHAPTERS=[{t:.04,label:'Лама Лола'},{t:.17,label:'Слон'},{t:.3,label:'Белка'},{t:.45,label:'Волк'},{t:.6,label:'Лось'},{t:.74,label:'Лошадка'},{t:.84,label:'Вечер, костёр'}];
+let scrub=null,curCh=0;
+(function initScrub(){const bar=$('dayBar'),tr=bar.querySelector('.dtrack'),kn=$('dKnob');
+  CHAPTERS.forEach(c=>{const d=document.createElement('i');d.className='dtick';d.style.left=(c.t*100)+'%';tr.insertBefore(d,kn);});
+  const lab=document.createElement('span');lab.className='dlabel';lab.hidden=true;tr.appendChild(lab);
+  const nearest=t=>{let b=0;CHAPTERS.forEach((c,i)=>{if(Math.abs(c.t-t)<Math.abs(CHAPTERS[b].t-t))b=i;});return b;};
+  const show=(t,b)=>{document.body.classList.add('scrubbing');kn.classList.add('drag');kn.style.left=(t*100)+'%';lab.hidden=false;lab.style.left=(CHAPTERS[b].t*100)+'%';lab.innerHTML='<small>перейти</small>'+CHAPTERS[b].label;
+    const r=tr.getBoundingClientRect(),lw=lab.offsetWidth/2,x=r.left+CHAPTERS[b].t*r.width;lab.style.marginLeft=(x-lw<6?6-(x-lw):x+lw>innerWidth-6?innerWidth-6-(x+lw):0)+'px';};
+  const hide=()=>{document.body.classList.remove('scrubbing');lab.hidden=true;kn.classList.remove('drag');kn.style.left=(dayT*100)+'%';};
+  const move=e=>{const r=tr.getBoundingClientRect(),t=clamp((e.clientX-r.left)/r.width,0,1);scrub.b=nearest(t);scrub.moved=scrub.moved||Math.abs(e.clientX-scrub.x0)>4;show(t,scrub.b);};
+  bar.addEventListener('pointerdown',e=>{if(mode!=='play')return;e.preventDefault();e.stopPropagation();try{bar.setPointerCapture(e.pointerId);}catch(_){}scrub={b:curCh,x0:e.clientX,moved:false};move(e);});
+  bar.addEventListener('pointermove',e=>{if(scrub)move(e);});
+  bar.addEventListener('pointerup',e=>{if(!scrub)return;const b=scrub.b;scrub=null;hide();jumpTo(b);});
+  bar.addEventListener('pointercancel',()=>{scrub=null;hide();});
+  bar.addEventListener('keydown',e=>{if(mode!=='play')return;if(e.key==='ArrowRight'&&curCh<CHAPTERS.length-1){e.preventDefault();jumpTo(curCh+1);}
+    else if(e.key==='ArrowLeft'&&curCh>0){e.preventDefault();jumpTo(curCh-1);}});
+})();
 
 /* ---------- audio ---------- */
 let AC=null,master=null,musicGain=null,noiseBuf=null,soundOn=true,volume=.8;
@@ -1167,8 +1225,9 @@ function loop(now){requestAnimationFrame(loop);const raw=(now-last)/1000;const r
 /* ---------- build ---------- */
 buildTerrain();buildWater();buildDecor();buildSky();buildItems();buildAnimals();buildBoat();buildFire();buildBubble();buildRing();buildBees();
 showcase();resize();camCur.t.copy(cam.goal);camCur.d=distFor(cam.R);cam.pitch=cam.pitchGoal;requestAnimationFrame(loop);
-window.__T={said,tapIsl:k=>islandTapped(k),get want(){return islWant;},get saying(){return !!sayRes;},get mode(){return mode;},get day(){return dayT;},setSpeed:v=>SPEED=v};
+window.__T={jump:c=>jumpTo(c),get ch(){return curCh;},said,tapIsl:k=>islandTapped(k),get want(){return islWant;},get saying(){return !!sayRes;},get mode(){return mode;},get day(){return dayT;},setSpeed:v=>SPEED=v};
 
 </script>
+
 
 </body></html>
